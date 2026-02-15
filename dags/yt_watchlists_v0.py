@@ -1,11 +1,8 @@
 import logging
-import os
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import Dict, List, Set, Tuple
 
 import pendulum
-import yaml
 
 from airflow import DAG
 from airflow.decorators import task
@@ -23,18 +20,7 @@ logger = logging.getLogger(__name__)
 LOCAL_TZ = pendulum.timezone("UTC")
 
 POSTGRES_CONN_ID = "postgres_db_yt_elt"
-WATCHLISTS_PATH = os.getenv("WATCHLISTS_CONFIG_PATH", "/opt/airflow/config/watchlists.yml")
-
-
-def _load_watchlists_config(path: str) -> List[dict]:
-    p = Path(path)
-    if not p.exists():
-        raise FileNotFoundError(f"watchlists config not found: {path}")
-    data = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
-    watchlists = data.get("watchlists") or []
-    if not isinstance(watchlists, list):
-        raise ValueError("watchlists must be a list")
-    return watchlists
+DEFAULT_WATCHLIST_ID = "default"
 
 
 def _pg() -> PostgresHook:
@@ -47,54 +33,45 @@ def migrate_db() -> List[str]:
 
 
 @task
-def sync_watchlists_config_to_db() -> Dict[str, List[str]]:
-    """
-    Upserts core.watchlists and core.watchlist_channels from config/watchlists.yml.
-    Returns mapping: watchlist_id -> channel_ids.
-    """
-    watchlists = _load_watchlists_config(WATCHLISTS_PATH)
-    out: Dict[str, List[str]] = {}
-
+def ensure_default_watchlist_exists() -> str:
     with _pg().get_conn() as conn:
         conn.autocommit = True
         with conn.cursor() as cur:
-            for wl in watchlists:
-                watchlist_id = wl["watchlist_id"]
-                enabled = bool(wl.get("enabled", True))
-                email = wl.get("email")
-                slack_webhook_url = wl.get("slack_webhook_url")
-                video_types = wl.get("video_types") or ["long", "short"]
-                channels = wl.get("channels") or []
-                channel_ids = [c["channel_id"] for c in channels if c.get("channel_id")]
+            cur.execute(
+                """
+                INSERT INTO core.watchlists(watchlist_id, enabled, video_types, updated_at)
+                VALUES (%s, true, ARRAY['long','short'], now())
+                ON CONFLICT (watchlist_id) DO UPDATE
+                  SET enabled = true,
+                      updated_at = now();
+                """,
+                (DEFAULT_WATCHLIST_ID,),
+            )
+    return DEFAULT_WATCHLIST_ID
 
-                cur.execute(
-                    """
-                    INSERT INTO core.watchlists(watchlist_id, email, slack_webhook_url, enabled, video_types, updated_at)
-                    VALUES (%s, %s, %s, %s, %s, now())
-                    ON CONFLICT (watchlist_id) DO UPDATE
-                      SET email = EXCLUDED.email,
-                          slack_webhook_url = EXCLUDED.slack_webhook_url,
-                          enabled = EXCLUDED.enabled,
-                          video_types = EXCLUDED.video_types,
-                          updated_at = now();
-                    """,
-                    (watchlist_id, email, slack_webhook_url, enabled, video_types),
-                )
 
-                # Replace mapping for simplicity (static config).
-                cur.execute("DELETE FROM core.watchlist_channels WHERE watchlist_id = %s;", (watchlist_id,))
-                for channel_id in channel_ids:
-                    cur.execute(
-                        """
-                        INSERT INTO core.watchlist_channels(watchlist_id, channel_id)
-                        VALUES (%s, %s)
-                        ON CONFLICT DO NOTHING;
-                        """,
-                        (watchlist_id, channel_id),
-                    )
-
-                out[watchlist_id] = channel_ids
-
+@task
+def get_tracked_channels_from_db(_watchlist_id: str) -> Dict[str, List[str]]:
+    """
+    Source of truth for tracked channels is Postgres (core.watchlist_channels).
+    Returns mapping: watchlist_id -> channel_ids.
+    """
+    out: Dict[str, List[str]] = {}
+    with _pg().get_conn() as conn:
+        conn.autocommit = True
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT w.watchlist_id, wc.channel_id
+                FROM core.watchlists w
+                JOIN core.watchlist_channels wc ON wc.watchlist_id = w.watchlist_id
+                WHERE w.enabled = true
+                ORDER BY w.watchlist_id, wc.channel_id;
+                """
+            )
+            rows = cur.fetchall()
+            for watchlist_id, channel_id in rows:
+                out.setdefault(watchlist_id, []).append(channel_id)
     return out
 
 
@@ -260,8 +237,9 @@ with DAG(
     description="Ingest YouTube channels from static watchlists.yml into core tables + stats snapshots",
 ) as dag:
     t_mig = migrate_db()
-    t_sync = sync_watchlists_config_to_db()
-    t_channels = upsert_channels_and_uploads_playlist_ids(t_sync)
+    t_default = ensure_default_watchlist_exists()
+    t_tracked = get_tracked_channels_from_db(t_default)
+    t_channels = upsert_channels_and_uploads_playlist_ids(t_tracked)
     t_recent = fetch_recent_video_ids_per_channel(t_channels)
     t_snap = upsert_videos_and_insert_snapshots(t_recent)
 
@@ -271,5 +249,4 @@ with DAG(
         wait_for_completion=False,
     )
 
-    t_mig >> t_sync >> t_channels >> t_recent >> t_snap >> t_trigger_alerts
-
+    t_mig >> t_default >> t_tracked >> t_channels >> t_recent >> t_snap >> t_trigger_alerts
