@@ -1,0 +1,21 @@
+{% if alerts and (alerts | length > 0) %}
+  <div class="alerts">
+    {% for a in alerts %}
+      <div class="alert">
+        <div class="alert__top">
+          <div class="title">
+            {{ a.channel_title if a.channel_title else a.channel_id }}: {{ a.video_title if a.video_title else a.video_id }}
+          </div>
+          <div class="muted small">{{ a.sent_at }} · {{ a.rule_type }}</div>
+        </div>
+        <div class="muted small">
+          <a href="https://www.youtube.com/watch?v={{ a.video_id }}" target="_blank" rel="noreferrer">open video</a>
+          · <code>{{ a.video_id }}</code>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="callout">No alerts sent yet.</div>
+{% endif %}
+

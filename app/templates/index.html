@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>YouTube Tracker (MVP)</title>
+    <link rel="stylesheet" href="/static/app.css" />
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  </head>
+  <body>
+    <div class="container">
+      <header class="header">
+        <div class="brand">
+          <div class="brand__title">YouTube Tracker</div>
+          <div class="brand__subtitle">Track channels. Ingest every 15 minutes. Alert to Slack.</div>
+        </div>
+        <a class="pill" href="http://localhost:8080" target="_blank" rel="noreferrer">Airflow UI</a>
+      </header>
+
+      <section class="panel">
+        <h2 class="h2">Add Channel</h2>
+        <p class="muted">
+          Type a channel name, <code>@handle</code>, channel URL, or <code>UC...</code> channel id.
+        </p>
+
+        <div class="search">
+          <input
+            class="search__input"
+            name="q"
+            placeholder="e.g. MrBeast, @veritasium, https://youtube.com/channel/UC..., UC..."
+            hx-get="/search"
+            hx-trigger="keyup changed delay:500ms"
+            hx-target="#search-results"
+            hx-indicator="#search-spinner"
+            autocomplete="off"
+          />
+          <div id="search-spinner" class="spinner htmx-indicator">Searching…</div>
+        </div>
+
+        <div id="search-results">
+          {% include "partials/search_results.html" %}
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2 class="h2">Tracked Channels</h2>
+        <div id="tracked-list">
+          {% include "partials/tracked_list.html" %}
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2 class="h2">Recent Alerts</h2>
+        {% include "partials/alerts_list.html" %}
+      </section>
+
+      <footer class="footer muted">
+        Airflow ingestion reads tracked channels from the DB. This UI does not trigger DAG runs.
+      </footer>
+    </div>
+  </body>
+</html>
+

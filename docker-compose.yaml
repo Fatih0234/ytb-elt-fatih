@@ -98,6 +98,7 @@ x-airflow-common:
     - ./config:/opt/airflow/config
     - ./dags:/opt/airflow/dags
     - ./data:/opt/airflow/data
+    - ./app:/opt/airflow/app
     - ./include:/opt/airflow/include
     - ./migrations:/opt/airflow/migrations
     - ./logs:/opt/airflow/logs
@@ -217,6 +218,34 @@ services:
       <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
+
+  app:
+    build:
+      context: .
+      dockerfile: docker/app/Dockerfile
+    container_name: ytb-elt-app
+    environment:
+      YOUTUBE_API_KEY: ${YOUTUBE_API_KEY}
+      DATABASE_URL: ${DATABASE_URL}
+      ELT_DATABASE_NAME: ${ELT_DATABASE_NAME}
+      ELT_DATABASE_USERNAME: ${ELT_DATABASE_USERNAME}
+      ELT_DATABASE_PASSWORD: ${ELT_DATABASE_PASSWORD}
+      POSTGRES_CONN_HOST: ${POSTGRES_CONN_HOST}
+      POSTGRES_CONN_PORT: ${POSTGRES_CONN_PORT}
+      APP_PORT: ${APP_PORT}
+      MIGRATIONS_DIR: /app/migrations
+    ports:
+      - "${APP_PORT:-8001}:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8001/health').read()"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: always
 
   # airflow-triggerer:
   #   <<: *airflow-common

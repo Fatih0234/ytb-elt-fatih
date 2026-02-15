@@ -1,0 +1,39 @@
+{% if error %}
+  <div class="callout callout--error">{{ error }}</div>
+{% endif %}
+
+{% if q and (results | length == 0) and (not error) %}
+  <div class="callout">No channels found for <code>{{ q }}</code>.</div>
+{% endif %}
+
+{% if results and (results | length > 0) %}
+  <div class="results">
+    {% for r in results %}
+      <div class="row">
+        <div class="row__left">
+          {% if r.thumbnail_url %}
+            <img class="thumb" src="{{ r.thumbnail_url }}" alt="thumbnail" />
+          {% endif %}
+          <div>
+            <div class="title">{{ r.title }}</div>
+            <div class="muted small">
+              <code>{{ r.channel_id }}</code>
+              {% if r.handle %} · <span>{{ r.handle }}</span>{% endif %}
+            </div>
+          </div>
+        </div>
+        <div class="row__right">
+          <form
+            hx-post="/track"
+            hx-target="#tracked-list"
+            hx-swap="innerHTML"
+          >
+            <input type="hidden" name="channel_id" value="{{ r.channel_id }}" />
+            <button class="btn" type="submit">Add</button>
+          </form>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+

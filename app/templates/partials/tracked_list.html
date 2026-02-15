@@ -1,0 +1,30 @@
+{% if tracked and (tracked | length > 0) %}
+  <div class="results">
+    {% for c in tracked %}
+      <div class="row">
+        <div class="row__left">
+          {% if c.thumbnail_url %}
+            <img class="thumb" src="{{ c.thumbnail_url }}" alt="thumbnail" />
+          {% endif %}
+          <div>
+            <div class="title">{{ c.title if c.title else c.channel_id }}</div>
+            <div class="muted small">
+              <code>{{ c.channel_id }}</code>
+              {% if c.last_snapshot_at %} · last ingest: <span>{{ c.last_snapshot_at }}</span>{% endif %}
+              · videos: <span>{{ c.videos_count }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="row__right">
+          <form hx-post="/untrack" hx-target="#tracked-list" hx-swap="innerHTML">
+            <input type="hidden" name="channel_id" value="{{ c.channel_id }}" />
+            <button class="btn btn--ghost" type="submit">Remove</button>
+          </form>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="callout">No tracked channels yet. Add one above.</div>
+{% endif %}
+
