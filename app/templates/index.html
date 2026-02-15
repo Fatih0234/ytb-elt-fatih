@@ -12,7 +12,7 @@
       <header class="header">
         <div class="brand">
           <div class="brand__title">YouTube Tracker</div>
-          <div class="brand__subtitle">Track channels. Ingest every 15 minutes. Alert to Slack.</div>
+          <div class="brand__subtitle">Track channels. Ingest every 15 minutes. Alert to Discord.</div>
         </div>
         <a class="pill" href="http://localhost:8080" target="_blank" rel="noreferrer">Airflow UI</a>
       </header>
@@ -20,14 +20,14 @@
       <section class="panel">
         <h2 class="h2">Add Channel</h2>
         <p class="muted">
-          Type a channel name, <code>@handle</code>, channel URL, or <code>UC...</code> channel id.
+          Please type your YouTube channel <code>@handle</code>.
         </p>
 
         <div class="search">
           <input
             class="search__input"
             name="q"
-            placeholder="e.g. MrBeast, @veritasium, https://youtube.com/channel/UC..., UC..."
+            placeholder="e.g. @MrBeast"
             hx-get="/search"
             hx-trigger="keyup changed delay:500ms"
             hx-target="#search-results"
@@ -60,4 +60,3 @@
     </div>
   </body>
 </html>
-

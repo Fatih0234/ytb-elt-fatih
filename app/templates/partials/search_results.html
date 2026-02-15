@@ -17,8 +17,18 @@
           <div>
             <div class="title">{{ r.title }}</div>
             <div class="muted small">
+              {% if r.handle %}<span class="handle">{{ r.handle }}</span> · {% endif %}
               <code>{{ r.channel_id }}</code>
-              {% if r.handle %} · <span>{{ r.handle }}</span>{% endif %}
+            </div>
+            <div class="meta">
+              {% if r.subscriber_count is not none %}
+                <span class="chip">{{ "{:,}".format(r.subscriber_count) }} subscribers</span>
+              {% else %}
+                <span class="chip chip--muted">subscribers hidden</span>
+              {% endif %}
+              {% if r.video_count is not none %}
+                <span class="chip">{{ "{:,}".format(r.video_count) }} videos</span>
+              {% endif %}
             </div>
           </div>
         </div>
@@ -36,4 +46,3 @@
     {% endfor %}
   </div>
 {% endif %}
-

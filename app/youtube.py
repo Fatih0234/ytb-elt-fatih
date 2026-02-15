@@ -20,6 +20,9 @@ class ChannelResult:
     title: str
     thumbnail_url: str
     handle: Optional[str] = None
+    subscriber_count: Optional[int] = None
+    video_count: Optional[int] = None
+    view_count: Optional[int] = None
 
 
 def parse_channel_input(raw: str) -> dict[str, str]:
@@ -70,7 +73,7 @@ class YouTubeClient:
     def resolve_channel_by_id(self, channel_id: str) -> Optional[dict[str, Any]]:
         url = (
             "https://youtube.googleapis.com/youtube/v3/channels"
-            f"?part=contentDetails&part=snippet&id={channel_id}&key={self.api_key}"
+            f"?part=contentDetails&part=snippet&part=statistics&id={channel_id}&key={self.api_key}"
         )
         data = self._get(url)
         items = data.get("items") or []
@@ -79,7 +82,7 @@ class YouTubeClient:
     def resolve_channel_by_handle(self, handle: str) -> Optional[dict[str, Any]]:
         url = (
             "https://youtube.googleapis.com/youtube/v3/channels"
-            f"?part=contentDetails&part=snippet&forHandle={handle}&key={self.api_key}"
+            f"?part=contentDetails&part=snippet&part=statistics&forHandle={handle}&key={self.api_key}"
         )
         data = self._get(url)
         items = data.get("items") or []
@@ -105,6 +108,7 @@ def channel_result_from_channels_item(item: dict[str, Any]) -> Optional[ChannelR
     snippet = item.get("snippet") or {}
     channel_id = item.get("id")
     if isinstance(channel_id, dict):
+        # search.list item
         channel_id = (channel_id.get("channelId") if channel_id else None)
 
     title = snippet.get("title") or ""
@@ -120,7 +124,30 @@ def channel_result_from_channels_item(item: dict[str, Any]) -> Optional[ChannelR
         return None
 
     handle = snippet.get("customUrl") or None
-    return ChannelResult(channel_id=channel_id, title=title, thumbnail_url=thumb, handle=handle)
+    if handle and not handle.startswith("@"):
+        # Historically customUrl was not necessarily a handle; normalize for display.
+        handle = f"@{handle}"
+
+    stats = item.get("statistics") or {}
+    subscriber_count = stats.get("subscriberCount")
+    video_count = stats.get("videoCount")
+    view_count = stats.get("viewCount")
+
+    def _to_int(v: Any) -> Optional[int]:
+        try:
+            return int(v) if v is not None else None
+        except Exception:
+            return None
+
+    return ChannelResult(
+        channel_id=channel_id,
+        title=title,
+        thumbnail_url=thumb,
+        handle=handle,
+        subscriber_count=_to_int(subscriber_count),
+        video_count=_to_int(video_count),
+        view_count=_to_int(view_count),
+    )
 
 
 def uploads_playlist_id_from_channels_item(item: dict[str, Any]) -> Optional[str]:

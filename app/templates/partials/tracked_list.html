@@ -12,6 +12,7 @@
               <code>{{ c.channel_id }}</code>
               {% if c.last_snapshot_at %} · last ingest: <span>{{ c.last_snapshot_at }}</span>{% endif %}
               · videos: <span>{{ c.videos_count }}</span>
+              {% if c.subscriber_count is not none %} · subs: <span>{{ "{:,}".format(c.subscriber_count) }}</span>{% endif %}
             </div>
           </div>
         </div>
@@ -27,4 +28,3 @@
 {% else %}
   <div class="callout">No tracked channels yet. Add one above.</div>
 {% endif %}
-

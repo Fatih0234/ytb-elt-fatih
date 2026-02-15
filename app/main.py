@@ -79,25 +79,34 @@ def search(request: Request, q: str = "") -> Any:
     error = None
 
     try:
-        if "channel_id" in parsed:
-            item = yt.resolve_channel_by_id(parsed["channel_id"])
-            if item:
-                r = youtube.channel_result_from_channels_item(item)
-                if r:
-                    results = [r]
-        elif "handle" in parsed:
-            item = yt.resolve_channel_by_handle(parsed["handle"])
-            if item:
-                r = youtube.channel_result_from_channels_item(item)
-                if r:
-                    results = [r]
-        else:
-            items = yt.search_channels(parsed.get("query", q), limit=10)
-            for it in items:
-                # search.list item structure differs: id.channelId + snippet
-                r = youtube.channel_result_from_channels_item(it)
-                if r:
-                    results.append(r)
+        # v0 app UX simplification: accept only @handle input.
+        if "handle" not in parsed:
+            return templates.TemplateResponse(
+                "partials/search_results.html",
+                {
+                    "request": request,
+                    "results": [],
+                    "q": q,
+                    "error": "Please enter a channel handle like @MrBeast",
+                },
+            )
+
+        handle = parsed["handle"]
+        item = yt.resolve_channel_by_handle(handle)
+        if not item:
+            return templates.TemplateResponse(
+                "partials/search_results.html",
+                {
+                    "request": request,
+                    "results": [],
+                    "q": q,
+                    "error": f"No channel found for @{handle}",
+                },
+            )
+
+        r = youtube.channel_result_from_channels_item(item)
+        if r:
+            results = [r]
     except Exception as e:
         error = str(e)
 
@@ -129,17 +138,33 @@ def track(request: Request, channel_id: str = Form(...)) -> Any:
             _ensure_default_watchlist(cur=cur)
             cur.execute(
                 """
-                INSERT INTO core.channels(channel_id, title, uploads_playlist_id, handle, thumbnail_url, last_resolved_at, updated_at)
-                VALUES (%s, %s, %s, %s, %s, now(), now())
+                INSERT INTO core.channels(
+                  channel_id, title, uploads_playlist_id, handle, thumbnail_url,
+                  subscriber_count, video_count, view_count,
+                  last_resolved_at, updated_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, now(), now())
                 ON CONFLICT (channel_id) DO UPDATE
                   SET title = EXCLUDED.title,
                       uploads_playlist_id = EXCLUDED.uploads_playlist_id,
                       handle = EXCLUDED.handle,
                       thumbnail_url = EXCLUDED.thumbnail_url,
+                      subscriber_count = EXCLUDED.subscriber_count,
+                      video_count = EXCLUDED.video_count,
+                      view_count = EXCLUDED.view_count,
                       last_resolved_at = now(),
                       updated_at = now();
                 """,
-                (r.channel_id, r.title, uploads, r.handle, r.thumbnail_url),
+                (
+                    r.channel_id,
+                    r.title,
+                    uploads,
+                    r.handle,
+                    r.thumbnail_url,
+                    r.subscriber_count,
+                    r.video_count,
+                    r.view_count,
+                ),
             )
 
             cur.execute(
@@ -197,6 +222,8 @@ def _get_tracked_channels() -> list[dict]:
                   c.channel_id,
                   COALESCE(c.title, '') AS title,
                   COALESCE(c.thumbnail_url, '') AS thumbnail_url,
+                  c.subscriber_count,
+                  c.video_count AS channel_video_count,
                   max(s.pulled_at) AS last_snapshot_at,
                   count(distinct v.video_id) AS videos_count
                 FROM core.watchlist_channels wc
@@ -204,7 +231,7 @@ def _get_tracked_channels() -> list[dict]:
                 LEFT JOIN core.videos v ON v.channel_id = c.channel_id
                 LEFT JOIN core.video_stats_snapshots s ON s.video_id = v.video_id
                 WHERE wc.watchlist_id = %s
-                GROUP BY c.channel_id, c.title, c.thumbnail_url
+                GROUP BY c.channel_id, c.title, c.thumbnail_url, c.subscriber_count, c.video_count
                 ORDER BY COALESCE(c.title, c.channel_id);
                 """,
                 (DEFAULT_WATCHLIST_ID,),

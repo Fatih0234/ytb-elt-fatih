@@ -52,6 +52,34 @@ body {
   font-size: 13px;
 }
 
+.meta {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.chip--muted {
+  color: var(--muted);
+}
+
+.handle {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .pill {
   display: inline-flex;
   padding: 8px 12px;
@@ -227,4 +255,3 @@ a {
     max-width: 300px;
   }
 }
-
