@@ -20,7 +20,6 @@ logger = logging.getLogger(__name__)
 LOCAL_TZ = pendulum.timezone("UTC")
 
 POSTGRES_CONN_ID = "postgres_db_yt_elt"
-DEFAULT_WATCHLIST_ID = "default"
 
 
 def _pg() -> PostgresHook:
@@ -33,25 +32,7 @@ def migrate_db() -> List[str]:
 
 
 @task
-def ensure_default_watchlist_exists() -> str:
-    with _pg().get_conn() as conn:
-        conn.autocommit = True
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO core.watchlists(watchlist_id, enabled, video_types, updated_at)
-                VALUES (%s, true, ARRAY['long','short'], now())
-                ON CONFLICT (watchlist_id) DO UPDATE
-                  SET enabled = true,
-                      updated_at = now();
-                """,
-                (DEFAULT_WATCHLIST_ID,),
-            )
-    return DEFAULT_WATCHLIST_ID
-
-
-@task
-def get_tracked_channels_from_db(_watchlist_id: str) -> Dict[str, List[str]]:
+def get_tracked_channels_from_db() -> Dict[str, List[str]]:
     """
     Source of truth for tracked channels is Postgres (core.watchlist_channels).
     Returns mapping: watchlist_id -> channel_ids.
@@ -236,11 +217,10 @@ with DAG(
     default_args=default_args,
     schedule="*/15 * * * *",
     catchup=False,
-    description="Ingest YouTube channels from static watchlists.yml into core tables + stats snapshots",
+    description="Ingest YouTube channels from DB watchlists into core tables + stats snapshots",
 ) as dag:
     t_mig = migrate_db()
-    t_default = ensure_default_watchlist_exists()
-    t_tracked = get_tracked_channels_from_db(t_default)
+    t_tracked = get_tracked_channels_from_db()
     t_channels = upsert_channels_and_uploads_playlist_ids(t_tracked)
     t_recent = fetch_recent_video_ids_per_channel(t_channels)
     t_snap = upsert_videos_and_insert_snapshots(t_recent)
@@ -251,4 +231,4 @@ with DAG(
         wait_for_completion=False,
     )
 
-    t_mig >> t_default >> t_tracked >> t_channels >> t_recent >> t_snap >> t_trigger_alerts
+    t_mig >> t_tracked >> t_channels >> t_recent >> t_snap >> t_trigger_alerts

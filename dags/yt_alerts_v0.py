@@ -67,7 +67,7 @@ def _var_int(name: str) -> Optional[int]:
         return None
 
 
-def _rule_with_overrides(watchlist_id: str, video_type: str):
+def _rule_with_overrides(cur, watchlist_id: str, video_type: str):
     """
     Allow dev/prod tuning via Airflow Variables, e.g.:
       ALERTS_LONG_ABS_FLOOR_VPH=100
@@ -76,7 +76,7 @@ def _rule_with_overrides(watchlist_id: str, video_type: str):
       ALERTS_LONG_MAX_AGE_HOURS=9999
     (short variants use ALERTS_SHORT_*)
     """
-    rule = default_rules_for(video_type, watchlist_id)
+    rule = _rule_from_db_or_default(cur=cur, watchlist_id=watchlist_id, video_type=video_type)
     prefix = "ALERTS_SHORT_" if video_type == "short" else "ALERTS_LONG_"
 
     abs_floor_vph = _var_float(prefix + "ABS_FLOOR_VPH")
@@ -95,6 +95,41 @@ def _rule_with_overrides(watchlist_id: str, video_type: str):
         rule = dc_replace(rule, max_age_hours=max_age_hours)
 
     return rule
+
+
+def _rule_from_db_or_default(*, cur, watchlist_id: str, video_type: str):
+    """
+    Load per-watchlist alert rules from Postgres if present (core.alert_rules),
+    else fallback to code defaults.
+    """
+    rule = default_rules_for(video_type, watchlist_id)
+    try:
+        cur.execute(
+            """
+            SELECT baseline_window_videos, baseline_hours, multiplier, abs_floor_vph,
+                   min_age_minutes, max_age_hours, daily_cap_per_channel
+            FROM core.alert_rules
+            WHERE watchlist_id=%s AND video_type=%s;
+            """,
+            (watchlist_id, video_type),
+        )
+        row = cur.fetchone()
+        if not row:
+            return rule
+        (baseline_window_videos, baseline_hours, multiplier, abs_floor_vph, min_age_minutes, max_age_hours, daily_cap_per_channel) = row
+        return dc_replace(
+            rule,
+            baseline_window_videos=int(baseline_window_videos),
+            baseline_hours=float(baseline_hours),
+            multiplier=float(multiplier),
+            abs_floor_vph=float(abs_floor_vph),
+            min_age_minutes=int(min_age_minutes),
+            max_age_hours=float(max_age_hours),
+            daily_cap_per_channel=int(daily_cap_per_channel),
+        )
+    except Exception:
+        # If the table doesn't exist yet (or any other issue), keep defaults.
+        return rule
 
 
 @task
@@ -143,7 +178,7 @@ def compute_and_send_alerts() -> int:
 
                 for channel_id, channel_title in channels:
                     for video_type in (video_types or []):
-                        rule = _rule_with_overrides(watchlist_id, video_type)
+                        rule = _rule_with_overrides(cur, watchlist_id, video_type)
 
                         # Daily cap per watchlist+channel.
                         cur.execute(
