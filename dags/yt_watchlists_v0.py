@@ -77,9 +77,6 @@ def get_tracked_channels_from_db(_watchlist_id: str) -> Dict[str, List[str]]:
 
 @task
 def upsert_channels_and_uploads_playlist_ids(watchlist_channels: Dict[str, List[str]]) -> List[str]:
-    api_key = Variable.get("YOUTUBE_API_KEY")
-    yt = YouTubeClient(api_key)
-
     channel_ids: Set[str] = set()
     for ids in watchlist_channels.values():
         channel_ids.update(ids)
@@ -87,6 +84,9 @@ def upsert_channels_and_uploads_playlist_ids(watchlist_channels: Dict[str, List[
     if not channel_ids:
         logger.info("No channels configured")
         return []
+
+    api_key = Variable.get("YOUTUBE_API_KEY")
+    yt = YouTubeClient(api_key)
 
     with _pg().get_conn() as conn:
         conn.autocommit = True
@@ -113,10 +113,12 @@ def upsert_channels_and_uploads_playlist_ids(watchlist_channels: Dict[str, List[
 
 @task
 def fetch_recent_video_ids_per_channel(channel_ids: List[str], limit_per_channel: int = 200) -> Dict[str, List[str]]:
+    out: Dict[str, List[str]] = {}
+    if not channel_ids:
+        return out
+
     api_key = Variable.get("YOUTUBE_API_KEY")
     yt = YouTubeClient(api_key)
-
-    out: Dict[str, List[str]] = {}
 
     with _pg().get_conn() as conn:
         conn.autocommit = True
@@ -136,9 +138,6 @@ def fetch_recent_video_ids_per_channel(channel_ids: List[str], limit_per_channel
 
 @task
 def upsert_videos_and_insert_snapshots(recent_video_ids: Dict[str, List[str]]) -> int:
-    api_key = Variable.get("YOUTUBE_API_KEY")
-    yt = YouTubeClient(api_key)
-
     # Dedupe all IDs across channels (videos are channel-scoped, but keep safe).
     to_fetch: List[Tuple[str, str]] = []
     for channel_id, vids in recent_video_ids.items():
@@ -148,6 +147,9 @@ def upsert_videos_and_insert_snapshots(recent_video_ids: Dict[str, List[str]]) -
     if not to_fetch:
         logger.info("No videos to fetch")
         return 0
+
+    api_key = Variable.get("YOUTUBE_API_KEY")
+    yt = YouTubeClient(api_key)
 
     pulled_at = datetime.now(tz=LOCAL_TZ)
     # Round to minute for dedupe.
