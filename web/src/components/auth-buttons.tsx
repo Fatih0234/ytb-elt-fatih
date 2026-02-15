@@ -48,7 +48,9 @@ export function AuthButtons() {
   }, [supabase]);
 
   if (state.kind === "loading") {
-    return <div className="text-xs text-neutral-500">Loading…</div>;
+    return (
+      <div className="text-xs text-[color:var(--muted)]">Loading…</div>
+    );
   }
 
   if (state.kind === "anon") {
@@ -61,7 +63,7 @@ export function AuthButtons() {
 
   return (
     <div className="flex items-center gap-3">
-      <div className="hidden sm:block text-xs text-neutral-500">
+      <div className="hidden sm:block text-xs text-[color:var(--muted)]">
         {state.email ?? "Signed in"}
       </div>
       <button className="btn btn--ghost" onClick={signOut} type="button">
@@ -70,4 +72,3 @@ export function AuthButtons() {
     </div>
   );
 }
-
