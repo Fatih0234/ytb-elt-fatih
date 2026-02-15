@@ -1,0 +1,20 @@
+interests:
+  ai_coding:
+    label: "AI coding"
+    hint: "Tools, workflows, and agentic dev."
+    handles:
+      - "@Fireship"
+      - "@t3dotgg"
+  startups:
+    label: "Startups"
+    hint: "Founders, product, and growth."
+    handles:
+      - "@ycombinator"
+      - "@ThisWeekInStartups"
+  science:
+    label: "Science"
+    hint: "Deep explanations and experiments."
+    handles:
+      - "@veritasium"
+      - "@3blue1brown"
+

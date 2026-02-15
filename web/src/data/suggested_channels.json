@@ -1,0 +1,20 @@
+{
+  "interests": {
+    "ai_coding": {
+      "label": "AI coding",
+      "hint": "Tools, workflows, and agentic dev.",
+      "channels": []
+    },
+    "startups": {
+      "label": "Startups",
+      "hint": "Founders, product, and growth.",
+      "channels": []
+    },
+    "science": {
+      "label": "Science",
+      "hint": "Deep explanations and experiments.",
+      "channels": []
+    }
+  }
+}
+
