@@ -22,7 +22,16 @@ def test_dags_integrity(dagbag):
     print(dagbag.import_errors)
 
     # 2.
-    expected_dag_ids = ["produce_json", "update_db", "data_quality"]
+    expected_dag_ids = [
+        "produce_json",
+        "update_db",
+        "data_quality",
+        # v0 core
+        "ingest_youtube_watchlists",
+        "compute_and_send_alerts",
+        # manual
+        "bootstrap_watchlists_from_yaml",
+    ]
     loaded_dag_ids = list(dagbag.dags.keys())
     print("===========")
     print(dagbag.dags.keys())
@@ -31,7 +40,7 @@ def test_dags_integrity(dagbag):
         assert dag_id in loaded_dag_ids, f"DAG {dag_id} is missing."
 
     # 3.
-    assert dagbag.size() == 3
+    assert dagbag.size() == len(expected_dag_ids)
     print("===========")
     print(dagbag.size())
 
@@ -40,9 +49,13 @@ def test_dags_integrity(dagbag):
         "produce_json": 5,
         "update_db": 3,
         "data_quality": 2,
+        "ingest_youtube_watchlists": 7,
+        "compute_and_send_alerts": 1,
+        "bootstrap_watchlists_from_yaml": 2,
     }
     print("===========")
-    for dag_id, dag in dagbag.dags.items():
+    for dag_id in expected_dag_ids:
+        dag = dagbag.dags[dag_id]
         expected_count = expected_task_counts[dag_id]
         actual_count = len(dag.tasks)
         assert (

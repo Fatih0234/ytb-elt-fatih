@@ -1,8 +1,15 @@
+import sys
+from pathlib import Path
 import os
 import pytest
 import psycopg2
 from unittest import mock
 from airflow.models import Variable, Connection, DagBag
+
+# Ensure repo root is on sys.path when pytest chooses tests/ as rootdir in-container.
+_ROOT = str(Path(__file__).resolve().parents[1])
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
 
 
 @pytest.fixture
