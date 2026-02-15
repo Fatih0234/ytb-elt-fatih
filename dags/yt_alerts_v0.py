@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass
+from dataclasses import replace as dc_replace
 from datetime import datetime, timedelta, timezone
 from statistics import median
 from typing import Dict, List, Optional, Tuple
@@ -42,6 +43,58 @@ def _pg() -> PostgresHook:
 
 def _video_url(video_id: str) -> str:
     return f"https://www.youtube.com/watch?v={video_id}"
+
+
+def _var_float(name: str) -> Optional[float]:
+    raw = Variable.get(name, default_var="")
+    if raw in (None, ""):
+        return None
+    try:
+        return float(raw)
+    except Exception:
+        logger.warning("Invalid float Airflow Variable %s=%r (ignored)", name, raw)
+        return None
+
+
+def _var_int(name: str) -> Optional[int]:
+    raw = Variable.get(name, default_var="")
+    if raw in (None, ""):
+        return None
+    try:
+        return int(float(raw))
+    except Exception:
+        logger.warning("Invalid int Airflow Variable %s=%r (ignored)", name, raw)
+        return None
+
+
+def _rule_with_overrides(watchlist_id: str, video_type: str):
+    """
+    Allow dev/prod tuning via Airflow Variables, e.g.:
+      ALERTS_LONG_ABS_FLOOR_VPH=100
+      ALERTS_LONG_MULTIPLIER=1.2
+      ALERTS_LONG_MIN_AGE_MINUTES=0
+      ALERTS_LONG_MAX_AGE_HOURS=9999
+    (short variants use ALERTS_SHORT_*)
+    """
+    rule = default_rules_for(video_type, watchlist_id)
+    prefix = "ALERTS_SHORT_" if video_type == "short" else "ALERTS_LONG_"
+
+    abs_floor_vph = _var_float(prefix + "ABS_FLOOR_VPH")
+    multiplier = _var_float(prefix + "MULTIPLIER")
+    min_age_minutes = _var_int(prefix + "MIN_AGE_MINUTES")
+    max_age_hours = _var_float(prefix + "MAX_AGE_HOURS")
+
+    # Keep the override surface small for now.
+    if abs_floor_vph is not None:
+        rule = dc_replace(rule, abs_floor_vph=abs_floor_vph)
+    if multiplier is not None:
+        rule = dc_replace(rule, multiplier=multiplier)
+    if min_age_minutes is not None:
+        rule = dc_replace(rule, min_age_minutes=min_age_minutes)
+    if max_age_hours is not None:
+        rule = dc_replace(rule, max_age_hours=max_age_hours)
+
+    return rule
 
 
 @task
@@ -90,7 +143,7 @@ def compute_and_send_alerts() -> int:
 
                 for channel_id, channel_title in channels:
                     for video_type in (video_types or []):
-                        rule = default_rules_for(video_type, watchlist_id)
+                        rule = _rule_with_overrides(watchlist_id, video_type)
 
                         # Daily cap per watchlist+channel.
                         cur.execute(
@@ -120,6 +173,18 @@ def compute_and_send_alerts() -> int:
                         vids = cur.fetchall()
                         if not vids:
                             continue
+
+                        logger.info(
+                            "Alerts scan: watchlist_id=%s channel_id=%s video_type=%s videos_in_window=%d rule(abs_floor_vph=%s multiplier=%s min_age_minutes=%s max_age_hours=%s)",
+                            watchlist_id,
+                            channel_id,
+                            video_type,
+                            len(vids),
+                            rule.abs_floor_vph,
+                            rule.multiplier,
+                            rule.min_age_minutes,
+                            rule.max_age_hours,
+                        )
 
                         # Baseline: median VPH among "early" videos (<= baseline_hours), using current VPH per video.
                         baseline_samples: List[float] = []

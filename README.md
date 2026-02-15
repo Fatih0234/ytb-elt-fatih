@@ -91,7 +91,7 @@ Key DAGs:
 
 - `compute_and_send_alerts` (triggered after ingestion)
   - Computes a simple views/hour spike from the last two snapshots
-  - Posts Slack alerts
+  - Posts Discord alerts
   - Dedupes via `core.alerts_sent`
 
 Manual bootstrap DAG (dev convenience):
@@ -139,6 +139,32 @@ Run tests inside the Airflow worker container:
 ```bash
 docker compose exec -T -w /opt/airflow airflow-worker pytest -q
 ```
+
+## Dev: Force An Alert (Lower Thresholds)
+
+By default, long-form alerts require at least **5000 views/hour**, so smaller channels will never trigger.
+
+To prove the end-to-end path works (DAG decides -> writes `core.alerts_sent` -> posts to Discord), you can temporarily lower thresholds via Airflow Variables:
+
+```bash
+docker compose exec -T airflow-worker airflow variables set ALERTS_LONG_ABS_FLOOR_VPH 50
+docker compose exec -T airflow-worker airflow variables set ALERTS_LONG_MULTIPLIER 1.1
+docker compose exec -T airflow-worker airflow variables set ALERTS_LONG_MIN_AGE_MINUTES 0
+docker compose exec -T airflow-worker airflow variables set ALERTS_LONG_MAX_AGE_HOURS 9999
+```
+
+Then run ingestion twice (to ensure each video has 2 snapshots) and check alerts:
+
+```bash
+docker compose exec -T airflow-worker airflow dags trigger ingest_youtube_watchlists
+sleep 70
+docker compose exec -T airflow-worker airflow dags trigger ingest_youtube_watchlists
+
+docker compose exec -T postgres bash -lc "PGPASSWORD=elt_pass psql -U elt_user -d elt_db -c \
+\"select sent_at, channel_id, video_id, rule_type from core.alerts_sent order by sent_at desc limit 20;\""
+```
+
+Reset by deleting variables or setting them back to the defaults (long: floor=5000, multiplier=2.5, min_age=30, max_age=24).
 
 ## Migrations
 
