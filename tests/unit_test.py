@@ -49,7 +49,7 @@ def test_dags_integrity(dagbag):
         "produce_json": 5,
         "update_db": 3,
         "data_quality": 2,
-        "ingest_youtube_watchlists": 7,
+        "ingest_youtube_watchlists": 6,
         "compute_and_send_alerts": 1,
         "bootstrap_watchlists_from_yaml": 2,
     }
