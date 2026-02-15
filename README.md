@@ -1,16 +1,16 @@
-# YouTube ELT + Alerts (Airflow + Postgres) + MVP Channel Tracker App (No Auth)
+# YouTube Watch: Airflow Ingestion + Alerts + Web App
 
-This repo runs a local data pipeline that:
+This repo contains:
 
-- Lets you add/remove tracked YouTube channels via a tiny web app (no login)
-- Ingests channel videos + stats snapshots into Postgres every 15 minutes (Airflow)
-- Computes simple velocity-spike alerts and posts them to Discord (deduped)
+- An **Airflow** pipeline that ingests YouTube videos + stats snapshots every 15 minutes
+- A simple **velocity-spike** alerts job that posts to **Discord**, deduped via `core.alerts_sent`
+- A **web app** (V1) built with **Next.js + Supabase Auth (Google)** to manage tracked channels (handle-only)
 
-There is no web app auth, no multi-tenant support, and no UI for editing Slack webhooks.
+The product direction is **multi-user** (1 watchlist per user) with Supabase Row Level Security (RLS).
 
 ## Architecture
 
-Services (Docker Compose):
+### Local (v0 dev stack)
 
 - `postgres`: one Postgres instance hosting multiple databases
   - `airflow_meta`: Airflow metadata DB
@@ -18,12 +18,11 @@ Services (Docker Compose):
   - `elt_db`: the ELT DB where `staging`/`core` schemas live
 - `redis`: Celery broker
 - `airflow-webserver`, `airflow-scheduler`, `airflow-worker`: Airflow stack
-- `app`: FastAPI + server-rendered HTML + HTMX (channel search + tracklist)
 
-Source of truth for tracked channels:
+Source of truth for tracked channels is always the DB table:
 
 - `core.watchlist_channels` in Postgres
-- The app writes to it
+- The web app writes to it
 - The ingestion DAG reads from it
 
 ## Prerequisites
@@ -32,7 +31,7 @@ Source of truth for tracked channels:
 - A YouTube Data API v3 key
 - (Optional) A Discord Incoming Webhook URL
 
-## Configure env
+## Configure env (local Airflow)
 
 Copy `.env.example` to `.env` and set at least:
 
@@ -44,7 +43,6 @@ Notes:
 - Docker Compose automatically reads `.env` in this folder.
 - Default ports:
   - Airflow UI: `http://localhost:8080`
-  - App UI: `http://localhost:8001`
 
 ## Run locally
 
@@ -63,21 +61,41 @@ docker compose ps
 Open:
 
 - Airflow UI: `http://localhost:8080`
-- Web app: `http://localhost:8001`
 
-## Use the web app
+## V1 Web App (Next.js + Supabase Auth)
 
-1. Open `http://localhost:8001`
-2. Search for a channel using:
-   - Channel ID: `UC...`
-   - Channel URL: `https://www.youtube.com/channel/UC...`
-   - Handle: `@somehandle` or `https://www.youtube.com/@somehandle`
-   - Name query: `MrBeast` (uses `search.list` interactively)
-3. Click `Add` to track it.
+V1 lives in `/web` and assumes a real Supabase project (Auth + Postgres).
 
-This will upsert `core.channels` and insert a row into `core.watchlist_channels` for the single watchlist:
+### Supabase DB setup
 
-- `watchlist_id = 'default'`
+Apply SQL migrations in `/supabase/migrations` (in order). See `supabase/README.md`.
+
+### Run the web app
+
+```bash
+cd web
+cp .env.example .env.local
+# set NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, YOUTUBE_API_KEY
+npm install
+npm run dev
+```
+
+Open: `http://localhost:3000`
+
+### Channel adding rule
+
+V1 is **handle-only**:
+- `@MrBeast`
+
+### Onboarding suggestions
+
+Curated handles live in `config/suggested_channels_seed.yml`.
+Generate the enriched JSON consumed by the UI:
+
+```bash
+cd web
+YOUTUBE_API_KEY=... npm run generate:suggestions
+```
 
 ## Airflow DAGs
 
@@ -111,7 +129,7 @@ Useful queries:
 
 ```sql
 -- tracked channels
-select * from core.watchlist_channels where watchlist_id = 'default';
+select * from core.watchlist_channels;
 
 -- channels
 select * from core.channels order by updated_at desc;
@@ -171,4 +189,5 @@ Reset by deleting variables or setting them back to the defaults (long: floor=50
 SQL migrations live in `migrations/`.
 
 - Airflow DAGs run migrations via a lightweight migration runner (`core.schema_migrations`).
-- The web app also applies migrations on startup.
+  - Local dev uses these migrations.
+- Supabase migrations live in `/supabase/migrations`.
