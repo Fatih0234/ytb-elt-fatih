@@ -7,13 +7,27 @@ function create_user_and_database() {
     local database=$1
     local username=$2
     local password=$3
-    echo "Creating user '$username' and database '$database'"
+    echo "Creating/updating user '$username' and database '$database'"
     psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" <<-EOSQL
-        CREATE USER $username WITH PASSWORD '$password';
-        CREATE DATABASE $database;
-        GRANT ALL PRIVILEGES ON DATABASE $database TO $username;
+        DO \$\$
+        BEGIN
+            IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${username}') THEN
+                CREATE ROLE "${username}" LOGIN PASSWORD '${password}';
+            ELSE
+                ALTER ROLE "${username}" WITH PASSWORD '${password}';
+            END IF;
+        END
+        \$\$;
+
+        -- CREATE DATABASE cannot run in a transaction, so we use psql's \gexec trick.
+        SELECT format('CREATE DATABASE %I', '${database}')
+        WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${database}');
+        \gexec
+
+        ALTER DATABASE "${database}" OWNER TO "${username}";
+        GRANT ALL PRIVILEGES ON DATABASE "${database}" TO "${username}";
 EOSQL
-    echo "  User '$username' and database '$database' created successfully"
+    echo "  User '$username' and database '$database' ensured successfully"
 }
 
 # Metadata database

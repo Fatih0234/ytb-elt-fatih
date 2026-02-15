@@ -110,7 +110,8 @@ x-airflow-common:
 services:
   postgres:
     container_name: postgres
-    image: postgres:13
+    build:
+      context: ./docker/postgres
     # Use the .env file to read the connection params - SWITCH THIS OFF WHEN USING GITHUB ACTIONS
     # env_file:
     #   - .env
@@ -133,7 +134,6 @@ services:
       - 5432:5432
     volumes:
       - postgres-db-volume:/var/lib/postgresql/data
-      - ./docker/postgres/init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh
     # Test connection to 1 of 3 dbs, the metadata db in this case
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "${POSTGRES_CONN_USERNAME}", "-d", "${METADATA_DATABASE_NAME}"]
