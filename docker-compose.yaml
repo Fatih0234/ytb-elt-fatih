@@ -85,6 +85,9 @@ x-airflow-common:
     # AIRFLOW_VAR_{VARIABLE_NAME}
     AIRFLOW_VAR_API_KEY: ${API_KEY}
     AIRFLOW_VAR_CHANNEL_HANDLE: ${CHANNEL_HANDLE}
+    # v0 core (static watchlists)
+    AIRFLOW_VAR_YOUTUBE_API_KEY: ${YOUTUBE_API_KEY}
+    AIRFLOW_VAR_SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
     # Postgres databases environment variables - Needed for integration and data quality tests
     ELT_DATABASE_NAME: ${ELT_DATABASE_NAME}
     ELT_DATABASE_USERNAME: ${ELT_DATABASE_USERNAME}
@@ -96,6 +99,7 @@ x-airflow-common:
     - ./dags:/opt/airflow/dags
     - ./data:/opt/airflow/data
     - ./include:/opt/airflow/include
+    - ./migrations:/opt/airflow/migrations
     - ./logs:/opt/airflow/logs
     - ./plugins:/opt/airflow/plugins
     - ./tests:/opt/airflow/tests
