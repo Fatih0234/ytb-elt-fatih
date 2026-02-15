@@ -10,9 +10,10 @@ from airflow.decorators import task
 from airflow.models import Variable
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 
+from ytb_elt.db.migrate import apply_sql_migrations, migrations_dir_default
 from ytb_elt.logic.alerts import default_rules_for, should_trigger_velocity_spike
 from ytb_elt.logic.metrics import compute_views_per_hour
-from ytb_elt.notify.slack import send_slack_webhook
+from ytb_elt.notify.discord import send_discord_webhook
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ POSTGRES_CONN_ID = "postgres_db_yt_elt"
 @dataclass(frozen=True)
 class Candidate:
     watchlist_id: str
-    slack_webhook_url: str
+    discord_webhook_url: str
     channel_id: str
     channel_title: str
     video_id: str
@@ -46,10 +47,13 @@ def _video_url(video_id: str) -> str:
 @task
 def compute_and_send_alerts() -> int:
     """
-    Compute velocity spikes from the last two snapshots per video and send Slack alerts.
+    Compute velocity spikes from the last two snapshots per video and send Discord alerts.
     Returns number of alerts sent (deduped by core.alerts_sent).
     """
-    default_webhook = Variable.get("SLACK_WEBHOOK_URL", default_var="")
+    # Ensure migrations applied so optional columns exist (e.g. discord_webhook_url).
+    apply_sql_migrations(postgres_conn_id=POSTGRES_CONN_ID, migrations_dir=migrations_dir_default())
+
+    default_webhook = Variable.get("DISCORD_WEBHOOK_URL", default_var="")
     now = datetime.now(timezone.utc)
 
     sent = 0
@@ -59,7 +63,7 @@ def compute_and_send_alerts() -> int:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT watchlist_id, COALESCE(slack_webhook_url, ''), enabled, video_types
+                SELECT watchlist_id, COALESCE(discord_webhook_url, ''), enabled, video_types
                 FROM core.watchlists
                 WHERE enabled = true;
                 """
@@ -69,7 +73,7 @@ def compute_and_send_alerts() -> int:
             for watchlist_id, wl_webhook, _enabled, video_types in watchlists:
                 webhook = wl_webhook or default_webhook
                 if not webhook:
-                    logger.warning("No Slack webhook configured for watchlist_id=%s (skipping)", watchlist_id)
+                    logger.warning("No Discord webhook configured for watchlist_id=%s (skipping)", watchlist_id)
                     continue
 
                 cur.execute(
@@ -179,7 +183,7 @@ def compute_and_send_alerts() -> int:
                                 f"Views/hour (est): {vph:,.0f}\n"
                                 f"Baseline: {baseline_vph:,.0f} (x{rule.multiplier})\n"
                             )
-                            send_slack_webhook(webhook_url=webhook, text=body)
+                            send_discord_webhook(webhook_url=webhook, content=body)
                             sent += 1
 
     return sent
@@ -226,7 +230,6 @@ with DAG(
     default_args=default_args,
     schedule=None,  # triggered by ingest DAG
     catchup=False,
-    description="Compute velocity spike alerts from snapshots and send Slack notifications",
+    description="Compute velocity spike alerts from snapshots and send Discord notifications",
 ) as dag:
     compute_and_send_alerts()
-

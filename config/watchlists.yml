@@ -1,9 +1,8 @@
 watchlists:
   - watchlist_id: "default"
     enabled: true
-    slack_webhook_url: ""  # optional; prefer env var SLACK_WEBHOOK_URL (see .env.example)
-    email: ""              # reserved for later (v0 uses Slack)
+    discord_webhook_url: ""  # optional; prefer env var DISCORD_WEBHOOK_URL (see .env.example)
+    email: ""                # reserved for later
     video_types: ["long", "short"]  # allowed: long, short
     channels:
       - channel_id: "UCX6OQ3DkcsbYNE6H8uQQuVA"  # MrBeast
-

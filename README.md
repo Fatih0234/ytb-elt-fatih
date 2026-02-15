@@ -4,7 +4,7 @@ This repo runs a local data pipeline that:
 
 - Lets you add/remove tracked YouTube channels via a tiny web app (no login)
 - Ingests channel videos + stats snapshots into Postgres every 15 minutes (Airflow)
-- Computes simple velocity-spike alerts and posts them to Slack (deduped)
+- Computes simple velocity-spike alerts and posts them to Discord (deduped)
 
 There is no web app auth, no multi-tenant support, and no UI for editing Slack webhooks.
 
@@ -30,14 +30,14 @@ Source of truth for tracked channels:
 
 - Docker Desktop
 - A YouTube Data API v3 key
-- (Optional) A Slack Incoming Webhook URL
+- (Optional) A Discord Incoming Webhook URL
 
 ## Configure env
 
 Copy `.env.example` to `.env` and set at least:
 
 - `YOUTUBE_API_KEY=...`
-- `SLACK_WEBHOOK_URL=...` (optional; alerts will fail to post if missing)
+- `DISCORD_WEBHOOK_URL=...` (optional; alerts will fail to post if missing)
 
 Notes:
 

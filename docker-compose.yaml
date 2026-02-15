@@ -86,8 +86,8 @@ x-airflow-common:
     AIRFLOW_VAR_API_KEY: ${API_KEY}
     AIRFLOW_VAR_CHANNEL_HANDLE: ${CHANNEL_HANDLE}
     # v0 core (static watchlists)
-    AIRFLOW_VAR_YOUTUBE_API_KEY: ${YOUTUBE_API_KEY}
-    AIRFLOW_VAR_SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
+    AIRFLOW_VAR_YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
+    AIRFLOW_VAR_DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
     # Postgres databases environment variables - Needed for integration and data quality tests
     ELT_DATABASE_NAME: ${ELT_DATABASE_NAME}
     ELT_DATABASE_USERNAME: ${ELT_DATABASE_USERNAME}
@@ -225,7 +225,7 @@ services:
       dockerfile: docker/app/Dockerfile
     container_name: ytb-elt-app
     environment:
-      YOUTUBE_API_KEY: ${YOUTUBE_API_KEY}
+      YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
       DATABASE_URL: postgresql://${ELT_DATABASE_USERNAME}:${ELT_DATABASE_PASSWORD}@${POSTGRES_CONN_HOST}:${POSTGRES_CONN_PORT}/${ELT_DATABASE_NAME}
       ELT_DATABASE_NAME: ${ELT_DATABASE_NAME}
       ELT_DATABASE_USERNAME: ${ELT_DATABASE_USERNAME}
