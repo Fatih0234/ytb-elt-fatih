@@ -56,7 +56,7 @@ begin
 end;
 $$;
 
-create or replace function core.get_recent_alerts(limit int default 20)
+create or replace function core.get_recent_alerts(limit_rows int default 20)
 returns table (
   sent_at timestamptz,
   channel_id text,
@@ -85,11 +85,11 @@ begin
   left join core.videos v on v.video_id = a.video_id
   where a.watchlist_id = auth.uid()::text
   order by a.sent_at desc
-  limit greatest(limit, 1);
+  limit greatest(limit_rows, 1);
 end;
 $$;
 
-create or replace function core.get_top_movers(limit int default 20)
+create or replace function core.get_top_movers(limit_rows int default 20)
 returns table (
   channel_id text,
   channel_title text,
@@ -164,7 +164,6 @@ begin
   from pairs p
   left join core.channels ch on ch.channel_id = p.channel_id
   order by views_per_hour desc nulls last
-  limit greatest(limit, 1);
+  limit greatest(limit_rows, 1);
 end;
 $$;
-

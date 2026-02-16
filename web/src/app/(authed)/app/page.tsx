@@ -64,10 +64,10 @@ export default async function AppPage() {
     core.rpc("get_tracked_channels_status"),
   );
   const movers = await rpcOrEmpty<TopMoverRow>(() =>
-    core.rpc("get_top_movers", { limit: 20 }),
+    core.rpc("get_top_movers", { limit_rows: 20 }),
   );
   const recentAlerts = await rpcOrEmpty<RecentAlertRow>(() =>
-    core.rpc("get_recent_alerts", { limit: 20 }),
+    core.rpc("get_recent_alerts", { limit_rows: 20 }),
   );
 
   return (

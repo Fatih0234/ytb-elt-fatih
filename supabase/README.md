@@ -9,9 +9,13 @@ This repo uses Supabase for:
 In your Supabase project:
 1. Open SQL Editor
 2. Run the files in `/supabase/migrations` in numeric order:
-   - `0001_core_schema.sql`
-   - `0002_rls_policies.sql`
-   - `0003_rpc_functions.sql`
+   - `20260216011000_ytwatch_core_schema.sql`
+   - `20260216011030_ytwatch_rls_policies.sql`
+   - `20260216011100_ytwatch_rpc_functions.sql`
+
+Note: your Supabase project may already have older migrations in history. This repo keeps them
+locally (fetched via `supabase migration fetch`) so `supabase db push` can work against the
+linked project without migration history conflicts.
 
 ## Required env vars for `/web`
 Create `/web/.env.local`:
