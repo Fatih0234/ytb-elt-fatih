@@ -11,6 +11,7 @@ export default async function Home({
 }) {
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
+  let setupError: string | null = null;
   if (data.user) {
     // Prevent redirect loops: only redirect if DB setup succeeds.
     try {
@@ -20,8 +21,13 @@ export default async function Home({
       } else {
         redirect("/onboarding");
       }
-    } catch {
-      // Signed in, but DB/RLS might be misconfigured. Show a helpful error.
+    } catch (e: unknown) {
+      // Signed in, but DB/RLS might be misconfigured. Keep details minimal but actionable.
+      const msg =
+        typeof e === "object" && e && "message" in e
+          ? String((e as { message?: unknown }).message)
+          : String(e);
+      setupError = msg || "setup_failed";
     }
   }
 
@@ -77,6 +83,24 @@ export default async function Home({
                 This usually means the Supabase SQL migrations/RLS/RPCs weren’t applied correctly, or the app is pointed
                 at the wrong Supabase project.
               </div>
+              {setupError ? (
+                <div className="mt-2 text-xs text-[color:var(--muted)]">
+                  <div>
+                    Error:{" "}
+                    <span className="font-mono text-[color:var(--fg)]">
+                      {setupError}
+                    </span>
+                  </div>
+                  <div className="mt-1">
+                    Next check: Supabase Dashboard{" "}
+                    {" > "}Settings{" > "}API{" > "}Exposed schemas includes{" "}
+                    <span className="font-mono text-[color:var(--fg)]">
+                      core
+                    </span>
+                    .
+                  </div>
+                </div>
+              ) : null}
               <div className="mt-3">
                 <AuthButtons />
               </div>
