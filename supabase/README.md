@@ -41,6 +41,10 @@ Notes:
 - When you deploy, also add your production site callback URL to Supabase allowlist:
   - `https://<your-domain>/auth/callback`
 
+## Expose the `core` schema in Supabase API settings
+The web app uses `supabase.schema("core")`. On hosted Supabase you must:
+- Settings -> API -> Exposed schemas: add `core` (and optionally `staging` if needed)
+
 ## Airflow connection (prod)
 Airflow should connect to Supabase Postgres using a role that can write to `core.*`.
 Recommended: create a dedicated DB role for Airflow and grant it `BYPASSRLS` so ingestion + alerts are not blocked by RLS.

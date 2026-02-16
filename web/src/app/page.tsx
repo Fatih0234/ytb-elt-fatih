@@ -6,7 +6,8 @@ import { redirect } from "next/navigation";
 export default async function Home({
   searchParams,
 }: {
-  searchParams?: { auth_error?: string };
+  // Next.js can pass searchParams as a Promise in some runtimes.
+  searchParams?: Promise<{ auth_error?: string }> | { auth_error?: string };
 }) {
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
@@ -24,7 +25,8 @@ export default async function Home({
     }
   }
 
-  const authError = searchParams?.auth_error;
+  const sp = searchParams ? await Promise.resolve(searchParams) : undefined;
+  const authError = sp?.auth_error;
 
   return (
     <div className="min-h-dvh bg-grid">
