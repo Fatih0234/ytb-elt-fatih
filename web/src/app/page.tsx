@@ -1,5 +1,6 @@
 import { AuthButtons } from "@/components/auth-buttons";
 import { createClient } from "@/lib/supabase/server";
+import { ensureUserSetup } from "@/lib/core";
 import { redirect } from "next/navigation";
 
 export default async function Home({
@@ -10,7 +11,17 @@ export default async function Home({
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
   if (data.user) {
-    redirect("/app");
+    // Prevent redirect loops: only redirect if DB setup succeeds.
+    try {
+      const setup = await ensureUserSetup();
+      if (setup.profile?.onboarding_completed) {
+        redirect("/app");
+      } else {
+        redirect("/onboarding");
+      }
+    } catch {
+      // Signed in, but DB/RLS might be misconfigured. Show a helpful error.
+    }
   }
 
   const authError = searchParams?.auth_error;
@@ -49,6 +60,24 @@ export default async function Home({
           {authError ? (
             <div className="mt-8 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
               {authError}
+            </div>
+          ) : null}
+
+          {data.user && !authError ? (
+            <div className="mt-8 rounded-2xl border px-4 py-3 text-sm"
+              style={{
+                borderColor: "var(--line)",
+                background: "color-mix(in oklab, var(--panel) 86%, transparent)",
+              }}
+            >
+              <div className="font-medium">Signed in, but setup failed.</div>
+              <div className="mt-1 text-xs text-[color:var(--muted)]">
+                This usually means the Supabase SQL migrations/RLS/RPCs weren’t applied correctly, or the app is pointed
+                at the wrong Supabase project.
+              </div>
+              <div className="mt-3">
+                <AuthButtons />
+              </div>
             </div>
           ) : null}
 

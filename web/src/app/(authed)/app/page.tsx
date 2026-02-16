@@ -54,8 +54,50 @@ async function rpcOrEmpty<T>(
 }
 
 export default async function AppPage() {
-  const { supabase, profile } = await ensureUserSetup();
-  if (!profile) redirect("/");
+  let supabase: Awaited<ReturnType<typeof ensureUserSetup>>["supabase"];
+  let profile: Awaited<ReturnType<typeof ensureUserSetup>>["profile"];
+  try {
+    const setup = await ensureUserSetup();
+    supabase = setup.supabase;
+    profile = setup.profile;
+  } catch (e: unknown) {
+    const msg =
+      typeof e === "object" && e && "message" in e
+        ? String((e as { message?: unknown }).message)
+        : String(e);
+    return (
+      <div className="min-h-dvh bg-grid">
+        <div className="mx-auto max-w-3xl px-6 py-16">
+          <Card
+            title="App setup error"
+            subtitle="You are signed in, but the app could not read/write its tables."
+          >
+            <div className="text-sm">
+              <div className="text-[color:var(--muted)]">
+                Error:
+              </div>
+              <div className="mt-2 rounded-xl border px-4 py-3 font-mono text-xs"
+                style={{ borderColor: "var(--line)", background: "color-mix(in oklab, var(--panel) 85%, transparent)" }}
+              >
+                {msg}
+              </div>
+              <div className="mt-4 text-xs text-[color:var(--muted)]">
+                Check that the Supabase migrations in <Mono>/supabase/migrations</Mono> were pushed to the same project
+                your <Mono>NEXT_PUBLIC_SUPABASE_URL</Mono> points to.
+              </div>
+              <div className="mt-5">
+                <AuthButtons />
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    redirect("/");
+  }
   if (!profile.onboarding_completed) redirect("/onboarding");
 
   const core = supabase.schema("core");

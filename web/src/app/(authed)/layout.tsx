@@ -1,4 +1,4 @@
-import { ensureUserSetup } from "@/lib/core";
+import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
 export default async function AuthedLayout({
@@ -6,18 +6,9 @@ export default async function AuthedLayout({
 }: {
   children: React.ReactNode;
 }) {
-  try {
-    await ensureUserSetup();
-  } catch (e: unknown) {
-    const msg =
-      typeof e === "object" && e && "message" in e
-        ? String((e as { message?: unknown }).message)
-        : String(e);
-    if (msg === "not_authenticated") {
-      redirect("/");
-    }
-    throw e;
-  }
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) redirect("/");
 
   return <>{children}</>;
 }

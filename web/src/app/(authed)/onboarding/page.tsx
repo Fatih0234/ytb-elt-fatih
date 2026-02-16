@@ -45,7 +45,35 @@ const INTERESTS: Array<{ key: InterestKey; label: string; hint: string }> =
   }));
 
 export default async function OnboardingPage() {
-  const { profile } = await ensureUserSetup();
+  let profile;
+  try {
+    const setup = await ensureUserSetup();
+    profile = setup.profile;
+  } catch (e: unknown) {
+    const msg =
+      typeof e === "object" && e && "message" in e
+        ? String((e as { message?: unknown }).message)
+        : String(e);
+    return (
+      <div className="min-h-dvh bg-grid">
+        <div className="mx-auto max-w-3xl px-6 py-16">
+          <Card
+            title="Onboarding setup error"
+            subtitle="Signed in, but the app could not initialize your profile."
+          >
+            <div className="rounded-xl border px-4 py-3 font-mono text-xs"
+              style={{ borderColor: "var(--line)", background: "color-mix(in oklab, var(--panel) 85%, transparent)" }}
+            >
+              {msg}
+            </div>
+            <div className="mt-5">
+              <AuthButtons />
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
   if (!profile) redirect("/");
   if (profile.onboarding_completed) redirect("/app");
 

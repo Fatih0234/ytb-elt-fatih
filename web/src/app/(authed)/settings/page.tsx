@@ -11,7 +11,43 @@ import {
 } from "@/app/(authed)/actions";
 
 export default async function SettingsPage() {
-  const { profile, supabase, user } = await ensureUserSetup();
+  let profile;
+  let supabase;
+  let user;
+  try {
+    const setup = await ensureUserSetup();
+    profile = setup.profile;
+    supabase = setup.supabase;
+    user = setup.user;
+  } catch (e: unknown) {
+    const msg =
+      typeof e === "object" && e && "message" in e
+        ? String((e as { message?: unknown }).message)
+        : String(e);
+    return (
+      <div className="min-h-dvh bg-grid">
+        <div className="mx-auto max-w-3xl px-6 py-16">
+          <Card
+            title="Settings setup error"
+            subtitle="Signed in, but the app could not load your settings."
+          >
+            <div
+              className="rounded-xl border px-4 py-3 font-mono text-xs"
+              style={{
+                borderColor: "var(--line)",
+                background: "color-mix(in oklab, var(--panel) 85%, transparent)",
+              }}
+            >
+              {msg}
+            </div>
+            <div className="mt-5">
+              <AuthButtons />
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
   if (!profile) redirect("/");
   if (!profile.onboarding_completed) redirect("/onboarding");
 
